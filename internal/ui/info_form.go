@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"github.com/Gu1llaum-3/sshm/internal/config"
+	"github.com/Gu1llaum-3/sshm/internal/credentials"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -100,6 +101,7 @@ func (m *infoFormModel) View() string {
 		{"ProxyCommand", formatOptionalValue(m.host.ProxyCommand)},
 		{"SSH Options", formatSSHOptions(m.host.Options)},
 		{"Tags", formatTags(m.host.Tags)},
+		{"Saved password", savedPasswordLabel(m.host.Name)},
 	}
 
 	// Render each section
@@ -234,4 +236,12 @@ func RunInfoForm(hostName string, configFile string) error {
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err = p.Run()
 	return err
+}
+
+// savedPasswordLabel reports whether a password is stored for the host.
+func savedPasswordLabel(host string) string {
+	if credentials.Has(host) {
+		return "Yes (credential manager)"
+	}
+	return "Not set"
 }

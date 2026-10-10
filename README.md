@@ -852,3 +852,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ⭐ **Star this repo if you found it useful!** ⭐
 
 </div>
+
+## Saved passwords & public key upload
+
+- `sshm passwd <host>` stores a host password in the OS credential manager (macOS Keychain, Windows Credential Manager, Linux Secret Service); `--delete` removes it. In the TUI press `P` on a host. Saved passwords are supplied to ssh automatically (OpenSSH 8.4+, via `SSH_ASKPASS`); host-key and passphrase prompts are never auto-answered.
+- `sshm copy-id <host> [-i key.pub]` uploads your public key (uses `ssh-copy-id`, or plain `ssh` when unavailable).

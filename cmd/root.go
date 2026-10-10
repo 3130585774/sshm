@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/Gu1llaum-3/sshm/internal/config"
+	"github.com/Gu1llaum-3/sshm/internal/credentials"
 	"github.com/Gu1llaum-3/sshm/internal/history"
 	"github.com/Gu1llaum-3/sshm/internal/ui"
 
@@ -203,11 +204,12 @@ func connectToHost(hostName string, remoteCommand []string) {
 		argv := append([]string{"ssh"}, args...)
 		// On Unix, Exec replaces the process and never returns on success.
 		// On Windows, Exec is not supported and returns an error; fall through to the exec.Command fallback.
-		_ = syscall.Exec(sshPath, argv, os.Environ())
+		_ = syscall.Exec(sshPath, argv, append(os.Environ(), credentials.Env(hostName)...))
 	}
 
 	// Fallback for Windows or if LookPath failed
 	sshCmd := exec.Command("ssh", args...)
+	sshCmd.Env = append(os.Environ(), credentials.Env(hostName)...)
 	sshCmd.Stdin = os.Stdin
 	sshCmd.Stdout = os.Stdout
 	sshCmd.Stderr = os.Stderr

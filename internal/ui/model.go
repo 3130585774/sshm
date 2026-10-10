@@ -38,6 +38,7 @@ const (
 	ViewAdd
 	ViewEdit
 	ViewMove
+	ViewPassword
 	ViewInfo
 	ViewPortForward
 	ViewHelp
@@ -94,6 +95,7 @@ type Model struct {
 	addForm          *addFormModel
 	editForm         *editFormModel
 	moveForm         *moveFormModel
+	passwordForm     *passwordFormModel
 	infoForm         *infoFormModel
 	portForwardForm  *portForwardModel
 	helpForm         *helpModel

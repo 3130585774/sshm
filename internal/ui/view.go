@@ -23,6 +23,10 @@ func (m Model) View() string {
 		if m.editForm != nil {
 			return m.editForm.View()
 		}
+	case ViewPassword:
+		if m.passwordForm != nil {
+			return m.passwordForm.View()
+		}
 	case ViewMove:
 		if m.moveForm != nil {
 			return m.moveForm.View()

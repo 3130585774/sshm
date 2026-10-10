@@ -3,11 +3,13 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
 	"github.com/Gu1llaum-3/sshm/internal/config"
 	"github.com/Gu1llaum-3/sshm/internal/connectivity"
+	"github.com/Gu1llaum-3/sshm/internal/credentials"
 	"github.com/Gu1llaum-3/sshm/internal/version"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -300,6 +302,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+	case passwordFormCancelMsg:
+		m.viewMode = ViewList
+		m.passwordForm = nil
+		m.table.Focus()
+		return m, nil
+
 	case moveFormCancelMsg:
 		// Cancel: return to list view
 		m.viewMode = ViewList
@@ -405,6 +413,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var updatedModel tea.Model
 				updatedModel, cmd = m.editForm.Update(msg)
 				m.editForm = updatedModel.(*editFormModel)
+				return m, cmd
+			}
+		case ViewPassword:
+			if m.passwordForm != nil {
+				m.passwordForm, cmd = m.passwordForm.Update(msg)
 				return m, cmd
 			}
 		case ViewMove:
@@ -594,6 +607,17 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.moveForm = moveForm
 				m.viewMode = ViewMove
 				return m, textinput.Blink
+			}
+		}
+	case "P":
+		if !m.searchMode && !m.deleteMode {
+			// Save or remove the password of the selected host
+			selected := m.table.SelectedRow()
+			if len(selected) > 0 {
+				hostName := extractHostNameFromTableRow(selected[0])
+				m.passwordForm = NewPasswordForm(hostName, m.styles, m.width, m.height)
+				m.viewMode = ViewPassword
+				return m, m.passwordForm.Init()
 			}
 		}
 	case "i":
@@ -809,6 +833,10 @@ func (m Model) connectToSelectedHost() tea.Cmd {
 		sshCmd = exec.Command("ssh", "-F", m.configFile, hostName)
 	} else {
 		sshCmd = exec.Command("ssh", hostName)
+	}
+
+	if env := credentials.Env(hostName); env != nil {
+		sshCmd.Env = append(os.Environ(), env...)
 	}
 
 	return tea.ExecProcess(sshCmd, func(err error) tea.Msg {
