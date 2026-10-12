@@ -90,6 +90,7 @@ func (m *helpModel) View() string {
 		lipgloss.JoinHorizontal(lipgloss.Left,
 			m.styles.FocusedLabel.Render("f  "),
 			m.styles.HelpText.Render("setup port forwarding")),
+		lipgloss.JoinHorizontal(lipgloss.Left, m.styles.FocusedLabel.Render("K  "), m.styles.HelpText.Render("configure key login")),
 		lipgloss.JoinHorizontal(lipgloss.Left,
 			m.styles.FocusedLabel.Render("s  "),
 			m.styles.HelpText.Render("cycle sort modes")),
