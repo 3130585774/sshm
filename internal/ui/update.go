@@ -8,6 +8,7 @@ import (
 
 	"github.com/Gu1llaum-3/sshm/internal/config"
 	"github.com/Gu1llaum-3/sshm/internal/connectivity"
+	"github.com/Gu1llaum-3/sshm/internal/keysetup"
 	"github.com/Gu1llaum-3/sshm/internal/version"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -21,6 +22,11 @@ type (
 	versionErrorMsg error
 	errorMsg        string
 )
+
+type keySetupDoneMsg struct {
+	err   error
+	hosts []config.SSHHost
+}
 
 // startPingAllCmd creates a command to ping all hosts concurrently
 func (m Model) startPingAllCmd() tea.Cmd {
@@ -142,6 +148,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case keySetupDoneMsg:
+		if msg.err != nil {
+			m.showingError = true
+			m.errorMessage = msg.err.Error()
+		} else {
+			m.showingError = false
+			m.errorMessage = ""
+		}
+		if msg.hosts != nil {
+			m.allHosts = msg.hosts
+			m.hosts = m.sortHosts(m.applyVisibilityFilter(msg.hosts))
+			m.filteredHosts = m.filterHosts(m.searchInput.Value())
+			m.updateTableRows()
+		}
+		return m, nil
 	case pingResultMsg:
 		// Handle ping result - update table display
 		if msg != nil {
@@ -558,6 +579,26 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		} else if cmd := m.connectToSelectedHost(); cmd != nil {
 			return m, cmd
+		}
+	case "K":
+		if !m.searchMode && !m.deleteMode {
+			selected := m.table.SelectedRow()
+			if len(selected) > 0 {
+				wizard := keysetup.New(extractHostNameFromTableRow(selected[0]), m.configFile)
+				return m, tea.Exec(wizard, func(err error) tea.Msg {
+					var hosts []config.SSHHost
+					var reloadErr error
+					if m.configFile != "" {
+						hosts, reloadErr = config.ParseSSHConfigFile(m.configFile)
+					} else {
+						hosts, reloadErr = config.ParseSSHConfig()
+					}
+					if err == nil {
+						err = reloadErr
+					}
+					return keySetupDoneMsg{err: err, hosts: hosts}
+				})
+			}
 		}
 	case "e":
 		if !m.searchMode && !m.deleteMode {

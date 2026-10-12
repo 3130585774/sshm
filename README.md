@@ -112,6 +112,7 @@ sshm
 - `e` - Edit selected host
 - `d` - Delete selected host
 - `m` - Move host to another config file (requires SSH Include directives)
+- `K` - Configure SSH key login (Linux target account)
 - `f` - Port forwarding setup
 - `p` - Check the status of all hosts again
 - `H` - Toggle hidden hosts visibility
@@ -138,6 +139,52 @@ The interactive forms will guide you through configuration:
 - **ProxyCommand** - Jump command for connection tunneling
 - **SSH Options** - Additional SSH options in `-o` format (e.g., `-o Compression=yes -o ServerAliveInterval=60`)
 - **Tags** - Comma-separated tags for organization
+
+### Configure SSH Key Login
+
+Select a host in the table and press `K`, or run:
+
+```bash
+sshm key-setup my-server
+sshm -c /path/to/ssh_config key-setup my-server
+```
+
+The terminal wizard lets you enter an existing **private key path**, or type
+`new` and choose an unused path to generate an Ed25519 key with `ssh-keygen`.
+It derives the public key from the private key, shows its fingerprint and the
+effective target account/address, then asks before installing it. Authenticate
+with your existing login method (usually your server password). First-time
+server fingerprints still require the normal OpenSSH confirmation.
+
+Only the public key is uploaded. The wizard appends it to the Linux account's
+`~/.ssh/authorized_keys`, preserves existing entries, avoids duplicates and sets
+SSH directory/file permissions. It then verifies a fresh connection using the
+selected key, with password and keyboard-interactive authentication disabled.
+Only after successful verification does it back up and update the host's
+`IdentityFile` in its source configuration, including files reached via `Include`.
+Other configured identities remain as fallbacks. Shared aliases are split so
+other hosts retain their settings. The TUI returns to the refreshed host list.
+
+Requires `ssh` and `ssh-keygen` on the local machine, and a Linux target with a
+POSIX shell and standard `uname`, `mkdir`, `chmod`, `touch`, and `awk` utilities.
+The server must allow public-key login and the account must be able to write its
+standard authorized-keys file. Custom authorized-key locations, restricted
+accounts, forced commands, or mandatory multi-factor authentication can prevent
+verification. An installation or verification failure leaves local configuration
+unchanged; if installation already succeeded, the public key remains on the
+server. No server SSH service settings or password-login policies are changed.
+
+Encrypted private keys may still prompt for their passphrase. To unlock once for
+subsequent connections, load your key into a running SSH agent:
+
+```bash
+ssh-add ~/.ssh/your_key
+```
+
+An empty key passphrase enables direct use without unlocking but leaves the
+private key unencrypted. SSHM does not store account passwords or key passphrases.
+To revoke access later, remove the matching key from the server's
+`authorized_keys`; deleting a local host entry does not revoke its server key.
 
 ### Port Forwarding
 
