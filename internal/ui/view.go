@@ -86,6 +86,10 @@ func (m Model) renderListView() string {
 		components = append(components, errorStyle.Render("❌ "+m.errorMessage))
 	}
 
+	if m.noticeMessage != "" {
+		components = append(components, m.styles.HelpText.Render(m.noticeMessage))
+	}
+
 	// Add indicator when hidden hosts are shown
 	if m.showHidden {
 		hiddenBannerStyle := lipgloss.NewStyle().

@@ -24,8 +24,10 @@ type (
 )
 
 type keySetupDoneMsg struct {
-	err   error
-	hosts []config.SSHHost
+	err        error
+	hosts      []config.SSHHost
+	host       string
+	configured bool
 }
 
 // startPingAllCmd creates a command to ping all hosts concurrently
@@ -149,18 +151,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case keySetupDoneMsg:
+		m.noticeMessage = ""
 		if msg.err != nil {
 			m.showingError = true
 			m.errorMessage = msg.err.Error()
 		} else {
 			m.showingError = false
 			m.errorMessage = ""
+			if msg.configured {
+				m.noticeMessage = fmt.Sprintf("Key login configured for %s. Press Enter to connect.", msg.host)
+			} else {
+				m.noticeMessage = fmt.Sprintf("Key setup cancelled for %s.", msg.host)
+			}
 		}
 		if msg.hosts != nil {
 			m.allHosts = msg.hosts
 			m.hosts = m.sortHosts(m.applyVisibilityFilter(msg.hosts))
 			m.filteredHosts = m.filterHosts(m.searchInput.Value())
 			m.updateTableRows()
+			for i, host := range m.filteredHosts {
+				if host.Name == msg.host {
+					m.table.SetCursor(i)
+					break
+				}
+			}
 		}
 		return m, nil
 	case pingResultMsg:
@@ -412,6 +426,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		m.noticeMessage = ""
 		// Handle view-specific key presses
 		switch m.viewMode {
 		case ViewAdd:
@@ -596,7 +611,7 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					if err == nil {
 						err = reloadErr
 					}
-					return keySetupDoneMsg{err: err, hosts: hosts}
+					return keySetupDoneMsg{err: err, hosts: hosts, host: wizard.Host, configured: wizard.Configured}
 				})
 			}
 		}

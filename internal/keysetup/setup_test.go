@@ -5,11 +5,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestInstallPreservesAndDeduplicatesKeys(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("installation requires a Linux target")
+	}
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("requires POSIX shell")
 	}
@@ -44,6 +48,9 @@ func TestInstallPreservesAndDeduplicatesKeys(t *testing.T) {
 }
 
 func TestInstallRefusesSymlink(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("installation requires a Linux target")
+	}
 	home := t.TempDir()
 	dir := filepath.Join(home, ".ssh")
 	os.Mkdir(dir, 0700)
@@ -79,6 +86,9 @@ func TestAcceptedKey(t *testing.T) {
 }
 
 func TestWizardFailuresLeaveConfigUnchanged(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a POSIX executable fixture")
+	}
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("requires POSIX shell")
 	}
@@ -122,6 +132,7 @@ for arg do
 			}
 			t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 			w := New("target", configPath)
+			w.Configured = true // Reusing a wizard must not retain a prior success.
 			answer := "y"
 			if stage == "cancel" {
 				answer = "n"
@@ -130,6 +141,9 @@ for arg do
 			w.SetStdout(io.Discard)
 			w.SetStderr(io.Discard)
 			err = w.Run()
+			if w.Configured {
+				t.Fatal("unsuccessful setup reported configured")
+			}
 			if stage == "cancel" && err != nil {
 				t.Fatal(err)
 			}
@@ -144,5 +158,53 @@ for arg do
 				t.Fatal("failure changed local config")
 			}
 		})
+	}
+}
+
+func TestWizardSuccessSavesIdentityAndReportsConfigured(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a POSIX executable fixture")
+	}
+	keygen, err := exec.LookPath("ssh-keygen")
+	if err != nil {
+		t.Skip(err)
+	}
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "app"))
+	key := filepath.Join(dir, "key")
+	if out, err := exec.Command(keygen, "-q", "-t", "ed25519", "-N", "", "-f", key).CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	fingerprintOut, err := exec.Command(keygen, "-lf", key, "-E", "sha256").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fingerprint := strings.Fields(string(fingerprintOut))[1]
+	configPath := filepath.Join(dir, "config")
+	original := "Host target\n HostName example.com\n"
+	if err := os.WriteFile(configPath, []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nfor arg do\n" +
+		"if [ \"$arg\" = -G ]; then printf 'user test\\nhostname example.com\\nport 22\\n'; exit 0; fi\n" +
+		"if [ \"$arg\" = -v ]; then echo 'debug1: Server accepts key: /selected ED25519 " + fingerprint + " explicit' >&2; exit 0; fi\n" +
+		"done\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(dir, "ssh"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	w := New("target", configPath)
+	w.SetStdin(strings.NewReader(key + "\ny\n"))
+	w.SetStdout(io.Discard)
+	w.SetStderr(io.Discard)
+	if err := w.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !w.Configured {
+		t.Fatal("verified and saved setup was not reported configured")
+	}
+	after, err := os.ReadFile(configPath)
+	if err != nil || !strings.Contains(string(after), "IdentityFile") {
+		t.Fatal("success did not save identity")
 	}
 }

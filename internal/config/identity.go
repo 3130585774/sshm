@@ -2,8 +2,10 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -84,5 +86,41 @@ func SetHostIdentity(configPath, hostName, identity string) error {
 	if err = backupConfig(target.SourceFile); err != nil {
 		return err
 	}
-	return os.WriteFile(target.SourceFile, []byte(strings.Join(lines, "\n")), 0600)
+	return replaceIdentityConfig(target.SourceFile, content, []byte(strings.Join(lines, "\n")))
+}
+
+// replaceIdentityConfig writes completely before replacing the original. Resolve
+// symlinks first so a config symlink continues to refer to the same file.
+func replaceIdentityConfig(path string, original, updated []byte) error {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return fmt.Errorf("resolve config file: %w", err)
+	}
+	temp, err := os.CreateTemp(filepath.Dir(target), ".sshm-key-setup-*")
+	if err != nil {
+		return fmt.Errorf("create temporary config: %w", err)
+	}
+	tempPath := temp.Name()
+	defer temp.Close()
+	defer os.Remove(tempPath)
+	if _, err = temp.Write(updated); err != nil {
+		return fmt.Errorf("write temporary config: %w", err)
+	}
+	if err = temp.Sync(); err != nil {
+		return fmt.Errorf("sync temporary config: %w", err)
+	}
+	if err = temp.Close(); err != nil {
+		return fmt.Errorf("close temporary config: %w", err)
+	}
+	current, err := os.ReadFile(target)
+	if err != nil {
+		return fmt.Errorf("recheck config file: %w", err)
+	}
+	if !bytes.Equal(current, original) {
+		return fmt.Errorf("SSH config changed during setup; retry instead of overwriting newer settings")
+	}
+	if err = os.Rename(tempPath, target); err != nil {
+		return fmt.Errorf("replace config file: %w", err)
+	}
+	return nil
 }

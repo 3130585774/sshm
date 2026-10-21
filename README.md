@@ -163,7 +163,12 @@ selected key, with password and keyboard-interactive authentication disabled.
 Only after successful verification does it back up and update the host's
 `IdentityFile` in its source configuration, including files reached via `Include`.
 Other configured identities remain as fallbacks. Shared aliases are split so
-other hosts retain their settings. The TUI returns to the refreshed host list.
+other hosts retain their settings. The TUI returns to the refreshed host list, preserves the selected host, and shows
+whether setup completed or was cancelled. Feedback clears with the next keypress.
+Local configuration is written to a temporary file before replacement; config
+symlinks are preserved, and a detected concurrent edit aborts saving instead of
+overwriting newer settings. Cancelling after key generation keeps the generated
+key files, but does not install the public key or change login settings.
 
 Requires `ssh` and `ssh-keygen` on the local machine, and a Linux target with a
 POSIX shell and standard `uname`, `mkdir`, `chmod`, `touch`, and `awk` utilities.

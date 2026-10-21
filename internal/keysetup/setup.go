@@ -18,8 +18,10 @@ import (
 // Wizard implements Bubble Tea's ExecCommand and can also run directly from the CLI.
 type Wizard struct {
 	Host, ConfigFile string
-	stdin            io.Reader
-	stdout, stderr   io.Writer
+	// Configured is true only after verification and local configuration saving.
+	Configured     bool
+	stdin          io.Reader
+	stdout, stderr io.Writer
 }
 
 // New creates a wizard using the current terminal.
@@ -52,6 +54,7 @@ func (w *Wizard) args() []string {
 
 // Run selects or generates a key, installs its public half, verifies login and saves the identity.
 func (w *Wizard) Run() error {
+	w.Configured = false
 	for _, tool := range []string{"ssh", "ssh-keygen"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			return fmt.Errorf("%s is required: %w", tool, err)
@@ -173,6 +176,7 @@ func (w *Wizard) Run() error {
 	if err = config.SetHostIdentity(configPath, w.Host, key); err != nil {
 		return fmt.Errorf("key installed and login verified, but saving local config failed: %w", err)
 	}
+	w.Configured = true
 	fmt.Fprintln(w.stdout, "Key login configured. Press Enter on this host to connect. Encrypted keys may still need ssh-agent unlocking.")
 	return nil
 }
