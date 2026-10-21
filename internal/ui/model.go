@@ -105,6 +105,9 @@ type Model struct {
 	styles Styles
 	ready  bool
 
+	// Feedback from terminal-based operations, dismissed by the next key.
+	noticeMessage string
+
 	// Error handling
 	errorMessage string
 	showingError bool
